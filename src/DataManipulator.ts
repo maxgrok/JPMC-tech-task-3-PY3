@@ -1,20 +1,34 @@
 import { ServerRespond } from './DataStreamer';
 
-export interface Row {
-  stock: string,
-  top_ask_price: number,
+export interface Row { //updating to reflect the changes in schema
+  price_abc: number,
+  price_def: number,
+  ratio: number,
   timestamp: Date,
+  upper_bound: number,
+  lower_bound: number,
+  trigger_alert: number | undefined,
 }
 
 
 export class DataManipulator {
-  static generateRow(serverResponds: ServerRespond[]): Row[] {
-    return serverResponds.map((el: any) => {
-      return {
-        stock: el.stock,
-        top_ask_price: el.top_ask && el.top_ask.price || 0,
-        timestamp: el.timestamp,
-      };
-    })
-  }
+  static generateRow(serverRespond: ServerRespond[]): Row {
+    //grabbing priceABC and priceDEF averages
+    const priceABC = (serverRespond[0].top_ask.price + serverRespond[0].top_bid.price) /2;
+    const priceDEF = (serverRespond[1].top_ask.price + serverRespond[1].top_bid.price) /2;
+    //calculating ratio of priceABC to priceDEF
+    const ratio = priceABC / priceDEF;
+    //adding upper and lower bounds for variation of 10% over 12 months
+    const upperBound = 1 + 0.05; 
+    const lowerBound = 1 - 0.05;
+    return {
+      price_abc: priceABC,
+      price_def: priceDEF,
+      ratio, 
+      timestamp: serverRespond[0].timestamp > serverRespond[1].timestamp ? serverRespond[0].timestamp : serverRespond[1].timestamp,
+      upper_bound: upperBound,
+      lower_bound: lowerBound,
+      trigger_alert: (ratio > upperBound || ratio < lowerBound) ? ratio : undefined,
+    }
+    }
 }
